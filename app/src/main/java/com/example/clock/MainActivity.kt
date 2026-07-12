@@ -22,8 +22,8 @@ class MainActivity : Activity() {
     private lateinit var settingsBtn: TextView
     private lateinit var nextEntryText: TextView
 
-    // 是否显示「下次进入时间」（设置项）
-    private var showNextEntry = false
+    // 是否启用「下次进入时间」功能（设置开关，默认开启）
+    private var showNextEntry = true
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -76,7 +76,7 @@ class MainActivity : Activity() {
 
     private fun loadPrefs() {
         showNextEntry = getSharedPreferences("clock", MODE_PRIVATE)
-            .getBoolean("show_next_entry", false)
+            .getBoolean("show_next_entry", true)
     }
 
     private fun hideSystemUI() {
@@ -106,7 +106,10 @@ class MainActivity : Activity() {
         timeText.text = timeFmt.format(cal.time)
         dateText.text = dateFmt.format(cal.time)
 
-        if (showNextEntry) {
+        // 仅当开关开启且当前选中服务器为「微软 / 阿里云备用」时显示下次进入时间
+        val selected = ServerPrefs.getSelected(this)
+        val showNext = showNextEntry && ServerPrefs.isNextEntryHost(selected)
+        if (showNext) {
             nextEntryText.visibility = View.VISIBLE
             nextEntryText.text = "下次进入 ${nextEntryTime(now)}"
         } else {
