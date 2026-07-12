@@ -24,8 +24,9 @@
         android:id="@+id/itemLatency"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:textColor="#5fa8ff"
-        android:textSize="12sp" />
+        android:layout_marginTop="4dp"
+        android:textColor="#4fc3f7"
+        android:textSize="14sp"
+        android:textStyle="bold" />
 
 </LinearLayout>
