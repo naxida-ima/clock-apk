@@ -5,9 +5,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.TextView
+import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -22,13 +24,19 @@ class MainActivity : Activity() {
     private lateinit var settingsBtn: TextView
     private lateinit var nextEntryText: TextView
 
-    // 是否启用「下次进入时间」功能（设置开关，默认开启）
-    private var showNextEntry = true
+    // 是否显示「下次进入时间」：由暗号触发（连点时间 10 次 / 长按 30 秒），持久化保存
+    private var nextEntryOn = false
 
     private val handler = Handler(Looper.getMainLooper())
 
     // NTP 校准得到的「本地时间 → 真实时间」偏移（毫秒）。null 表示尚未校准。
     private var offset: Long? = null
+
+    // 暗号计数
+    private var tapCount = 0
+    private var lastTapTime = 0L
+    private var longPressStart = 0L
+    private val TAP_WINDOW = 2000L
 
     private val shanghai = TimeZone.getTimeZone("Asia/Shanghai")
     private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.CHINA).apply { timeZone = shanghai }
@@ -59,6 +67,7 @@ class MainActivity : Activity() {
         settingsBtn.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+        setupSecretGesture()
         handler.post(tick)
     }
 
@@ -75,8 +84,47 @@ class MainActivity : Activity() {
     }
 
     private fun loadPrefs() {
-        showNextEntry = getSharedPreferences("clock", MODE_PRIVATE)
-            .getBoolean("show_next_entry", true)
+        nextEntryOn = getSharedPreferences("clock", MODE_PRIVATE)
+            .getBoolean("next_entry_on", false)
+    }
+
+    // 暗号：连续点击时间 10 次，或长按时间区域 ≥30 秒，切换「下次进入时间」显示
+    private fun setupSecretGesture() {
+        timeText.isClickable = true
+        timeText.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    longPressStart = System.currentTimeMillis()
+                }
+                MotionEvent.ACTION_UP -> {
+                    val dur = System.currentTimeMillis() - longPressStart
+                    if (dur >= 30000) {
+                        toggleNextEntry()
+                    } else {
+                        val now = System.currentTimeMillis()
+                        if (now - lastTapTime > TAP_WINDOW) tapCount = 0
+                        tapCount++
+                        lastTapTime = now
+                        if (tapCount >= 10) {
+                            tapCount = 0
+                            toggleNextEntry()
+                        }
+                    }
+                }
+            }
+            true
+        }
+    }
+
+    private fun toggleNextEntry() {
+        nextEntryOn = !nextEntryOn
+        getSharedPreferences("clock", MODE_PRIVATE)
+            .edit().putBoolean("next_entry_on", nextEntryOn).apply()
+        Toast.makeText(
+            this,
+            if (nextEntryOn) "下次进入时间：开" else "下次进入时间：关",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     private fun hideSystemUI() {
@@ -106,9 +154,9 @@ class MainActivity : Activity() {
         timeText.text = timeFmt.format(cal.time)
         dateText.text = dateFmt.format(cal.time)
 
-        // 仅当开关开启且当前选中服务器为「微软 / 阿里云备用」时显示下次进入时间
+        // 仅当暗号已开启，且当前选中服务器为「微软 / 阿里云备用」时才显示
         val selected = ServerPrefs.getSelected(this)
-        val showNext = showNextEntry && ServerPrefs.isNextEntryHost(selected)
+        val showNext = nextEntryOn && ServerPrefs.isNextEntryHost(selected)
         if (showNext) {
             nextEntryText.visibility = View.VISIBLE
             nextEntryText.text = "下次进入 ${nextEntryTime(now)}"
