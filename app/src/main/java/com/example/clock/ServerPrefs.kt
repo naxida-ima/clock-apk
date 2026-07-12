@@ -51,4 +51,45 @@ object ServerPrefs {
         list.forEach { arr.put(it) }
         p.edit().putString("custom_servers", arr.toString()).apply()
     }
+
+    // ===== 实时在线人数功能 =====
+    // 触发序列：阿里云备用 -> 微软 -> 阿里云 -> (阿里云备用 | 微软)
+    private const val SEQ_A = "ntp1.aliyun.com"   // 阿里云备用
+    private const val SEQ_B = "time.windows.com"   // 微软
+    private const val SEQ_C = "ntp.aliyun.com"     // 阿里云（默认）
+
+    // 记录一次服务器选择，返回是否恰好匹配「在线人数触发序列」
+    fun recordSelection(ctx: Context, host: String): Boolean {
+        val p = ctx.getSharedPreferences("clock", Context.MODE_PRIVATE)
+        val arr = try { JSONArray(p.getString("selection_history", "[]")) } catch (e: Exception) { JSONArray() }
+        arr.put(host)
+        while (arr.length() > 8) arr.remove(0)
+        p.edit().putString("selection_history", arr.toString()).apply()
+        if (arr.length() >= 4) {
+            val n = arr.length()
+            val a = arr.optString(n - 4)
+            val b = arr.optString(n - 3)
+            val c = arr.optString(n - 2)
+            val d = arr.optString(n - 1)
+            if (a == SEQ_A && b == SEQ_B && c == SEQ_C &&
+                (d == SEQ_A || d == SEQ_B)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun isOnlineOn(ctx: Context): Boolean =
+        ctx.getSharedPreferences("clock", Context.MODE_PRIVATE).getBoolean("online_on", false)
+
+    fun setOnlineOn(ctx: Context, on: Boolean) {
+        ctx.getSharedPreferences("clock", Context.MODE_PRIVATE).edit().putBoolean("online_on", on).apply()
+    }
+
+    fun getOnlineApiBase(ctx: Context): String =
+        ctx.getSharedPreferences("clock", Context.MODE_PRIVATE).getString("online_api_base", "") ?: ""
+
+    fun setOnlineApiBase(ctx: Context, base: String) {
+        ctx.getSharedPreferences("clock", Context.MODE_PRIVATE).edit().putString("online_api_base", base.trim()).apply()
+    }
 }
