@@ -12,9 +12,7 @@ import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.EditText
-import android.widget.LinearLayout
 import android.widget.ListView
-import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import kotlin.concurrent.thread
@@ -47,14 +45,6 @@ class SettingsActivity : Activity() {
         }
         findViewById<Button>(R.id.addBtn).setOnClickListener { showAddDialog() }
         findViewById<Button>(R.id.doneBtn).setOnClickListener { finish() }
-
-        // 开关：默认开启；整行可点击切换，避免只点右侧小开关导致「点了没反应」
-        val sw = findViewById<Switch>(R.id.nextEntrySwitch)
-        sw.isChecked = prefs.getBoolean("show_next_entry", true)
-        sw.setOnCheckedChangeListener { _, isChecked ->
-            prefs.edit().putBoolean("show_next_entry", isChecked).apply()
-        }
-        findViewById<LinearLayout>(R.id.nextEntryRow).setOnClickListener { sw.toggle() }
 
         measureLatency()
     }
