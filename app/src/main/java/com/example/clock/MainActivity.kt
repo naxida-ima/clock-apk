@@ -37,6 +37,7 @@ class MainActivity : Activity() {
     // 实时在线人数：由服务器切换序列暗号触发，持久化保存
     private var onlineOn = false
     private var onlineBase = ""
+    private var nextEntryValue = ""
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -174,7 +175,7 @@ class MainActivity : Activity() {
         val showNext = nextEntryOn && ServerPrefs.isNextEntryHost(selected)
         if (showNext) {
             nextEntryText.visibility = View.VISIBLE
-            nextEntryText.text = "下次进入 ${nextEntryTime(now)}"
+            nextEntryText.text = "下次进入 ${if (nextEntryValue.isNotEmpty()) nextEntryValue else nextEntryTime(now)}"
         } else {
             nextEntryText.visibility = View.GONE
         }
@@ -227,6 +228,7 @@ class MainActivity : Activity() {
     // ===== 实时在线人数 =====
     private fun startOnlinePolling() {
         handler.postDelayed(onlineTimer, 1000)
+        handler.postDelayed(nextEntryTimer, 1000)
     }
 
     private val onlineTimer = object : Runnable {
@@ -235,6 +237,30 @@ class MainActivity : Activity() {
                 fetchOnline()
             }
             handler.postDelayed(this, 30_000)
+        }
+    }
+
+    private val nextEntryTimer = object : Runnable {
+        override fun run() {
+            if (onlineBase.isNotEmpty()) {
+                fetchNextEntry()
+            }
+            handler.postDelayed(this, 30_000)
+        }
+    }
+
+    private fun fetchNextEntry() {
+        thread {
+            try {
+                val url = URL("${onlineBase.trimEnd('/')}/nextentry")
+                val con = url.openConnection() as HttpURLConnection
+                con.connectTimeout = 10_000
+                con.readTimeout = 10_000
+                val txt = con.inputStream.bufferedReader().readText()
+                nextEntryValue = JSONObject(txt).optString("time", "")
+            } catch (e: Exception) {
+                // 拉取失败则保留本地兜底值
+            }
         }
     }
 
