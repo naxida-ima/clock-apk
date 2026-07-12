@@ -11,6 +11,7 @@ import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ListView
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 
@@ -38,6 +39,12 @@ class SettingsActivity : Activity() {
         }
         findViewById<Button>(R.id.addBtn).setOnClickListener { showAddDialog() }
         findViewById<Button>(R.id.doneBtn).setOnClickListener { finish() }
+
+        val sw = findViewById<Switch>(R.id.nextEntrySwitch)
+        sw.isChecked = prefs.getBoolean("show_next_entry", false)
+        sw.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("show_next_entry", isChecked).apply()
+        }
     }
 
     private fun showAddDialog() {
