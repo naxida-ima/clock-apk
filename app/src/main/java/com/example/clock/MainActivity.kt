@@ -15,6 +15,10 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.concurrent.thread
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONObject
+import java.util.UUID
 
 class MainActivity : Activity() {
 
@@ -23,9 +27,14 @@ class MainActivity : Activity() {
     private lateinit var syncIndicator: TextView
     private lateinit var settingsBtn: TextView
     private lateinit var nextEntryText: TextView
+    private lateinit var onlineText: TextView
 
     // 是否显示「下次进入时间」：由暗号触发（连点时间 10 次 / 长按 30 秒），持久化保存
     private var nextEntryOn = false
+
+    // 实时在线人数：由服务器切换序列暗号触发，持久化保存
+    private var onlineOn = false
+    private var onlineBase = ""
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -61,8 +70,10 @@ class MainActivity : Activity() {
         syncIndicator = findViewById(R.id.syncIndicator)
         settingsBtn = findViewById(R.id.settingsBtn)
         nextEntryText = findViewById(R.id.nextEntryText)
+        onlineText = findViewById(R.id.onlineText)
 
         loadPrefs()
+        startOnlinePolling()
         fitTextSize()
         settingsBtn.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
@@ -84,8 +95,10 @@ class MainActivity : Activity() {
     }
 
     private fun loadPrefs() {
-        nextEntryOn = getSharedPreferences("clock", MODE_PRIVATE)
-            .getBoolean("next_entry_on", false)
+        val p = getSharedPreferences("clock", MODE_PRIVATE)
+        nextEntryOn = p.getBoolean("next_entry_on", false)
+        onlineOn = ServerPrefs.isOnlineOn(this)
+        onlineBase = ServerPrefs.getOnlineApiBase(this)
     }
 
     // 暗号：连续点击时间 10 次，或长按时间区域 ≥30 秒，切换「下次进入时间」显示
@@ -163,6 +176,9 @@ class MainActivity : Activity() {
         } else {
             nextEntryText.visibility = View.GONE
         }
+
+        // 实时在线人数：由序列暗号开启，且已配置 Worker 地址时才显示
+        onlineText.visibility = if (onlineOn && onlineBase.isNotEmpty()) View.VISIBLE else View.GONE
     }
 
     // 加入时间规律：每分钟的第 1/5/9/13… 分（每 4 分钟一次，minute % 4 == 1）。
@@ -203,6 +219,48 @@ class MainActivity : Activity() {
                 }
             }
             handler.post { syncIndicator.text = "未校准 · 本机时间" }
+        }
+    }
+
+    // ===== 实时在线人数 =====
+    private fun startOnlinePolling() {
+        handler.postDelayed(onlineTimer, 1000)
+    }
+
+    private val onlineTimer = object : Runnable {
+        override fun run() {
+            if (onlineOn && onlineBase.isNotEmpty()) {
+                fetchOnline()
+            }
+            handler.postDelayed(this, 30_000)
+        }
+    }
+
+    private fun deviceUuid(): String {
+        val p = getSharedPreferences("clock", MODE_PRIVATE)
+        var u = p.getString("device_uuid", null)
+        if (u == null) {
+            u = UUID.randomUUID().toString()
+            p.edit().putString("device_uuid", u).apply()
+        }
+        return u
+    }
+
+    private fun fetchOnline() {
+        thread {
+            try {
+                val url = URL("${onlineBase.trimEnd('/')}/heartbeat?id=${deviceUuid()}")
+                val con = url.openConnection() as HttpURLConnection
+                con.connectTimeout = 10_000
+                con.readTimeout = 10_000
+                val txt = con.inputStream.bufferedReader().readText()
+                val n = JSONObject(txt).optInt("online", -1)
+                handler.post {
+                    onlineText.text = if (n >= 0) "在线 $n 人" else "在线 --"
+                }
+            } catch (e: Exception) {
+                handler.post { onlineText.text = "在线 获取失败" }
+            }
         }
     }
 }
