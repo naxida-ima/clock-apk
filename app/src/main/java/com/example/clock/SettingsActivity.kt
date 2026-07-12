@@ -4,16 +4,20 @@ import android.app.AlertDialog
 import android.app.Activity
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import kotlin.concurrent.thread
 
 private data class ServerEntry(val name: String, val host: String, val custom: Boolean)
 
@@ -22,6 +26,10 @@ class SettingsActivity : Activity() {
     private lateinit var listView: ListView
     private lateinit var prefs: SharedPreferences
     private lateinit var adapter: ServerAdapter
+    private val handler = Handler(Looper.getMainLooper())
+
+    // 服务器地址 -> 响应延迟文案（毫秒），测速后填充
+    private val latencyMap: MutableMap<String, String> = mutableMapOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,10 +48,32 @@ class SettingsActivity : Activity() {
         findViewById<Button>(R.id.addBtn).setOnClickListener { showAddDialog() }
         findViewById<Button>(R.id.doneBtn).setOnClickListener { finish() }
 
+        // 开关：默认开启；整行可点击切换，避免只点右侧小开关导致「点了没反应」
         val sw = findViewById<Switch>(R.id.nextEntrySwitch)
-        sw.isChecked = prefs.getBoolean("show_next_entry", false)
+        sw.isChecked = prefs.getBoolean("show_next_entry", true)
         sw.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("show_next_entry", isChecked).apply()
+        }
+        findViewById<LinearLayout>(R.id.nextEntryRow).setOnClickListener { sw.toggle() }
+
+        measureLatency()
+    }
+
+    // 对每个服务器做一次 SNTP 探测，取网络往返毫秒数显示在列表项
+    private fun measureLatency() {
+        val hosts = (ServerPrefs.defaultServers.map { it.second } +
+                ServerPrefs.getCustomHosts(prefs)).toSet()
+        thread {
+            for (h in hosts) {
+                val text = try {
+                    val r = SntpClient.requestTimeWithDelay(h)
+                    "延迟 ${r.delay} ms"
+                } catch (e: Exception) {
+                    "延迟 超时"
+                }
+                latencyMap[h] = text
+                handler.post { adapter.notifyDataSetChanged() }
+            }
         }
     }
 
@@ -92,6 +122,7 @@ class SettingsActivity : Activity() {
             ServerPrefs.setCustomHosts(prefs, cur)
             entries = buildEntries()
             notifyDataSetChanged()
+            measureLatency()
         }
 
         fun requestDeleteAt(pos: Int) {
@@ -122,11 +153,13 @@ class SettingsActivity : Activity() {
             val v = convertView ?: inflater.inflate(R.layout.server_item, parent, false)
             val name = v.findViewById<TextView>(R.id.itemName)
             val host = v.findViewById<TextView>(R.id.itemHost)
+            val latency = v.findViewById<TextView>(R.id.itemLatency)
             val e = entries[p]
             val sel = prefs.getString("selected_server", ServerPrefs.defaultServers[0].second)
             val base = e.name + if (e.custom) "（自定义）" else ""
             name.text = if (e.host == sel) "✓ $base" else base
             host.text = e.host
+            latency.text = latencyMap[e.host] ?: "测速中…"
             return v
         }
     }
