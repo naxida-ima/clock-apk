@@ -9,7 +9,7 @@ import org.json.JSONArray
  */
 object ServerPrefs {
 
-    // 默认服务器：覆盖国内低延迟与常见公共节点
+    // 默认服务器：覆盖国内低延迟与常见公共节点（第一项「阿里云」为默认选中）
     val defaultServers: List<Pair<String, String>> = listOf(
         "阿里云" to "ntp.aliyun.com",
         "阿里云备用" to "ntp1.aliyun.com",
@@ -22,6 +22,11 @@ object ServerPrefs {
         "Cloudflare" to "time.cloudflare.com",
         "NTP 池" to "pool.ntp.org"
     )
+
+    // 仅当选中以下服务器时，主界面才显示「下次进入时间」
+    val NEXT_ENTRY_HOSTS: Set<String> = setOf("time.windows.com", "ntp1.aliyun.com")
+
+    fun isNextEntryHost(host: String): Boolean = NEXT_ENTRY_HOSTS.contains(host)
 
     fun getSelected(ctx: Context): String {
         val p = ctx.getSharedPreferences("clock", Context.MODE_PRIVATE)
