@@ -46,6 +46,13 @@ class SettingsActivity : Activity() {
         findViewById<Button>(R.id.addBtn).setOnClickListener { showAddDialog() }
         findViewById<Button>(R.id.doneBtn).setOnClickListener { finish() }
 
+        val apiInput = findViewById<EditText>(R.id.onlineApiInput)
+        apiInput.setText(ServerPrefs.getOnlineApiBase(this))
+        findViewById<Button>(R.id.saveApiBtn).setOnClickListener {
+            ServerPrefs.setOnlineApiBase(this, apiInput.text.toString())
+            Toast.makeText(this, "已保存服务端地址", Toast.LENGTH_SHORT).show()
+        }
+
         measureLatency()
     }
 
@@ -97,8 +104,19 @@ class SettingsActivity : Activity() {
         fun selectAt(pos: Int) {
             val e = entries[pos]
             prefs.edit().putString("selected_server", e.host).apply()
+            val matched = ServerPrefs.recordSelection(this@SettingsActivity, e.host)
             notifyDataSetChanged()
-            Toast.makeText(this@SettingsActivity, "已选择：${e.name}", Toast.LENGTH_SHORT).show()
+            if (matched) {
+                val on = !ServerPrefs.isOnlineOn(this@SettingsActivity)
+                ServerPrefs.setOnlineOn(this@SettingsActivity, on)
+                Toast.makeText(
+                    this@SettingsActivity,
+                    if (on) "实时在线人数：开" else "实时在线人数：关",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                Toast.makeText(this@SettingsActivity, "已选择：${e.name}", Toast.LENGTH_SHORT).show()
+            }
             finish()
         }
 
