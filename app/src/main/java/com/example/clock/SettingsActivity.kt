@@ -46,13 +46,6 @@ class SettingsActivity : Activity() {
         findViewById<Button>(R.id.addBtn).setOnClickListener { showAddDialog() }
         findViewById<Button>(R.id.doneBtn).setOnClickListener { finish() }
 
-        val apiInput = findViewById<EditText>(R.id.onlineApiInput)
-        apiInput.setText(ServerPrefs.getOnlineApiBase(this))
-        findViewById<Button>(R.id.saveApiBtn).setOnClickListener {
-            ServerPrefs.setOnlineApiBase(this, apiInput.text.toString())
-            Toast.makeText(this, "已保存服务端地址", Toast.LENGTH_SHORT).show()
-        }
-
         measureLatency()
     }
 
