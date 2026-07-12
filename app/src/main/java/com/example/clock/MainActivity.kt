@@ -20,6 +20,10 @@ class MainActivity : Activity() {
     private lateinit var dateText: TextView
     private lateinit var syncIndicator: TextView
     private lateinit var settingsBtn: TextView
+    private lateinit var nextEntryText: TextView
+
+    // 是否显示「下次进入时间」（设置项）
+    private var showNextEntry = false
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -48,7 +52,9 @@ class MainActivity : Activity() {
         dateText = findViewById(R.id.dateText)
         syncIndicator = findViewById(R.id.syncIndicator)
         settingsBtn = findViewById(R.id.settingsBtn)
+        nextEntryText = findViewById(R.id.nextEntryText)
 
+        loadPrefs()
         fitTextSize()
         settingsBtn.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
@@ -59,12 +65,18 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         hideSystemUI()
+        loadPrefs()
         syncTime() // 从设置返回后按新选择重新校准
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) hideSystemUI()
+    }
+
+    private fun loadPrefs() {
+        showNextEntry = getSharedPreferences("clock", MODE_PRIVATE)
+            .getBoolean("show_next_entry", false)
     }
 
     private fun hideSystemUI() {
@@ -93,6 +105,29 @@ class MainActivity : Activity() {
         cal.timeInMillis = now
         timeText.text = timeFmt.format(cal.time)
         dateText.text = dateFmt.format(cal.time)
+
+        if (showNextEntry) {
+            nextEntryText.visibility = View.VISIBLE
+            nextEntryText.text = "下次进入 ${nextEntryTime(now)}"
+        } else {
+            nextEntryText.visibility = View.GONE
+        }
+    }
+
+    // 加入时间规律：每分钟的第 1/5/9/13… 分（每 4 分钟一次，minute % 4 == 1）。
+    // 返回从 now 起下一个符合条件的整分时刻（秒/毫秒归零）。
+    private fun nextEntryTime(now: Long): String {
+        val cal = Calendar.getInstance(shanghai)
+        cal.timeInMillis = now
+        val m = cal.get(Calendar.MINUTE)
+        val s = cal.get(Calendar.SECOND)
+        val ms = cal.get(Calendar.MILLISECOND)
+        var deltaMin = (4 - ((m - 1) % 4)) % 4
+        if (deltaMin == 0 && (s > 0 || ms > 0)) deltaMin = 4
+        cal.add(Calendar.MINUTE, deltaMin)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return timeFmt.format(cal.time)
     }
 
     // 优先用用户在设置里选的服务器；失败再静默回退其他服务器，绝不显示具体地址
