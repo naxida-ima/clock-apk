@@ -20,4 +20,12 @@
         android:textColor="#888888"
         android:textSize="13sp" />
 
+    <TextView
+        android:id="@+id/itemLatency"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="#5fa8ff"
+        android:textSize="12sp" />
+
 </LinearLayout>
