@@ -15,11 +15,20 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../keystore/clock-apk.keystore")
+            storePassword = (project.findProperty("RELEASE_STORE_PASSWORD") as String?)
+            keyAlias = (project.findProperty("RELEASE_KEY_ALIAS") as String?)
+            keyPassword = (project.findProperty("RELEASE_KEY_PASSWORD") as String?)
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // release 复用 debug 签名，免配置的 keystore
-            signingConfig = signingConfigs.getByName("debug")
+            // 使用随仓库固定的 release 签名，避免 CI/本地签名不一致导致覆盖安装失败
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
