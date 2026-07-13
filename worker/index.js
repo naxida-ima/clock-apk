@@ -227,6 +227,8 @@ function adminHtml(cfg, msg, disp) {
     <div class="preview">软件端当前显示：<span>${preview}</span></div>
     ${msg ? `<div class="ok">${escapeHtml(msg)}</div>` : ''}
 
+    <a class="xmlentry" href="/xml">🛠 可视化 XML 编辑器（小白专用）→</a>
+
     <div class="tabs">
       <button type="button" class="tab ${mode === 'manual' ? 'on' : ''}" onclick="show('manual',this)">✍️ 直接写</button>
       <button type="button" class="tab ${mode === 'xml' ? 'on' : ''}" onclick="show('xml',this)">📄 上传XML</button>
@@ -309,6 +311,8 @@ function page(body, title) {
   .pane.on{display:block}
   .row{display:flex;gap:12px}.row>div{flex:1}
   .file{font-size:13px;color:var(--mut)}
+  .xmlentry{display:block;margin:16px 0 0;padding:12px 14px;text-align:center;text-decoration:none;background:linear-gradient(135deg,rgba(108,140,255,.16),rgba(69,224,192,.16));border:1px solid #313b66;border-radius:10px;color:var(--acc);font-weight:600;font-size:14px;transition:.15s}
+  .xmlentry:hover{border-color:var(--acc);color:var(--acc2)}
 </style></head>
 <body>${body}</body></html>`;
 }
