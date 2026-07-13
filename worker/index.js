@@ -31,6 +31,10 @@ export default {
       return await handleAdmin(request, env);
     }
 
+    if (p === '/xml') {
+      return new Response(xmlBuilderHtml(), { headers: { 'content-type': 'text/html; charset=utf-8' } });
+    }
+
     return new Response('Not Found', { status: 404 });
     } catch (e) {
       return new Response('后台错误: ' + (e && e.stack ? e.stack : String(e)), { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } });
@@ -275,10 +279,10 @@ function adminHtml(cfg, msg, disp) {
   </script>`);
 }
 
-function page(body) {
+function page(body, title) {
   return `<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>后台管理Z9TEST</title>
+<title>${title || '后台管理'}</title>
 <style>
   :root{--bg:#0f1220;--card:#1a1f35;--fg:#e8ecff;--mut:#8b93b8;--acc:#6c8cff;--acc2:#45e0c0;--ok:#3ddc97;--err:#ff6b81}
   *{box-sizing:border-box}
@@ -307,4 +311,36 @@ function page(body) {
   .file{font-size:13px;color:var(--mut)}
 </style></head>
 <body>${body}</body></html>`;
+}
+
+function xmlBuilderHtml() {
+  const inner = `<div class="card">
+  <h2>📄 可视化 XML 生成器</h2>
+  <p class="hint">给「北京时间」后台用。填时间和备注，自动生成后台需要的 XML，复制后贴到后台「上传XML」模式即可。时间格式如 <b>2026-07-13 20:00</b>（也支持 07-13 20:00 或 20:00）。</p>
+  <div id="rows"></div>
+  <button type="button" class="ghost" onclick="addRow()">+ 添加一行</button>
+  <div class="preview" style="margin-top:16px">生成的 XML：</div>
+  <textarea id="out" readonly style="margin-top:6px"></textarea>
+  <div class="tabs" style="margin-top:12px">
+    <button type="button" onclick="copyXml()">复制 XML</button>
+    <button type="button" onclick="downloadXml()">下载 .xml</button>
+    <button type="button" class="ghost" onclick="document.getElementById('imp').style.display='block'">导入已有 XML</button>
+  </div>
+  <div id="imp" style="display:none;margin-top:12px">
+    <textarea id="impbox" placeholder="粘贴已有 XML 进行编辑..."></textarea>
+    <button type="button" onclick="importXml()">解析并回填</button>
+  </div>
+  <style>.rowitem{display:flex;gap:8px;margin:8px 0}.rowitem input{flex:1}.rowitem .n{flex:2}</style>
+</div>
+<script>
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function rowHtml(t,n){return '<div class="rowitem"><input class="t" placeholder="2026-07-13 20:00" value="'+esc(t)+'"><input class="n" placeholder="备注，如 回来吃饭" value="'+esc(n)+'"><button type="button" class="ghost" onclick="this.parentNode.remove();gen()">✕</button></div>';}
+function addRow(){document.getElementById('rows').insertAdjacentHTML('beforeend',rowHtml('',''));gen();}
+function gen(){var rows=document.querySelectorAll('#rows .rowitem');var xml='<schedule>';rows.forEach(function(r){var t=r.querySelector('.t').value.trim();var n=r.querySelector('.n').value.trim();if(t){xml+='<entry time="'+esc(t)+'" note="'+esc(n)+'"/>';}});xml+='</schedule>';document.getElementById('out').value=xml;}
+function copyXml(){var o=document.getElementById('out');o.select();try{navigator.clipboard.writeText(o.value);}catch(e){}document.execCommand('copy');alert('已复制 XML 到剪贴板');}
+function downloadXml(){var b=new Blob([document.getElementById('out').value],{type:'application/xml'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='schedule.xml';a.click();}
+function importXml(){var x=document.getElementById('impbox').value;var re=/<entry\b([^>]*)>/gi;var m;document.getElementById('rows').innerHTML='';while((m=re.exec(x))){var t=(m[1].match(/time\s*=\s*"([^"]*)"/i)||[])[1]||'';var n=(m[1].match(/note\s*=\s*"([^"]*)"/i)||[])[1]||'';document.getElementById('rows').insertAdjacentHTML('beforeend',rowHtml(t,n));}gen();}
+addRow();
+</script>`;
+  return page(inner, 'XML 生成器');
 }
