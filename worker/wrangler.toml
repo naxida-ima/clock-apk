@@ -1,16 +1,15 @@
 name = "clock-online"
 main = "index.js"
 compatibility_date = "2024-09-23"
+account_id = "0e935b84e152baf19bcb650029ddc54a"
 
 kv_namespaces = [
-  { binding = "CLOCK_KV", id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID" }
+  { binding = "CLOCK_KV", id = "6edf36a39f4e480d90a9c5d044f56cdf" }
 ]
 
-# 部署步骤（密码不要写进仓库）：
-# 1) npm i -g wrangler
-# 2) wrangler login
-# 3) wrangler kv namespace create CLOCK_KV   # 把返回的 id 填到上面
-# 4) wrangler secret put ADMIN_PASS          # 设管理员密码
-# 5) wrangler secret put ADMIN_TOKEN         # 设登录 cookie 值（随机串，如 openssl rand -hex 16）
-# 6) wrangler deploy
-# 管理后台： https://<你的worker域名>/admin
+# 部署（密码不要写进仓库）：
+#   cd worker
+#   CLOUDFLARE_API_TOKEN=xxx npx wrangler secret put ADMIN_PASS
+#   CLOUDFLARE_API_TOKEN=xxx npx wrangler secret put ADMIN_TOKEN
+#   CLOUDFLARE_API_TOKEN=xxx npx wrangler deploy
+# 管理后台： https://clock-online.zjtpan.dpdns.org/admin
