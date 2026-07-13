@@ -54,7 +54,7 @@ async function handleAdmin(request, env) {
           'Set-Cookie': 'clock_admin=' + env.ADMIN_TOKEN + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400'
         }});
       }
-      return new Response(loginHtml('密码错误'), htmlHeaders());
+      return new Response(loginHtml('密码错误'), { headers: { 'content-type': 'text/html; charset=utf-8' } });
     }
 
     if (!authed) return new Response('未授权', { status: 401 });
@@ -90,14 +90,14 @@ async function handleAdmin(request, env) {
     }
     await saveCfg(env, cfg);
     const disp = computeDisplay(cfg, Date.now());
-    return new Response(adminHtml(cfg, '已保存 ✓', disp), htmlHeaders());
+    return new Response(adminHtml(cfg, '已保存 ✓', disp), { headers: { 'content-type': 'text/html; charset=utf-8' } });
   }
 
   // GET
-  if (!authed) return new Response(loginHtml(), htmlHeaders());
+  if (!authed) return new Response(loginHtml(), { headers: { 'content-type': 'text/html; charset=utf-8' } });
   const cfg = await loadCfg(env);
   const disp = computeDisplay(cfg, Date.now());
-  return new Response(adminHtml(cfg, '', disp), htmlHeaders());
+  return new Response(adminHtml(cfg, '', disp), { headers: { 'content-type': 'text/html; charset=utf-8' } });
 }
 
 // ---- 配置读写 ----
@@ -187,7 +187,7 @@ function json(o) {
     headers: { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*' }
   });
 }
-function htmlHeaders() { return { 'content-type': 'text/html; charset=utf-8' }; }
+function htmlHeaders() { return new Headers([['content-type', 'text/html; charset=utf-8']]); }
 function escapeHtml(s) {
   s = (s == null) ? '' : String(s);
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -278,7 +278,7 @@ function adminHtml(cfg, msg, disp) {
 function page(body) {
   return `<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>后台管理</title>
+<title>后台管理Z9TEST</title>
 <style>
   :root{--bg:#0f1220;--card:#1a1f35;--fg:#e8ecff;--mut:#8b93b8;--acc:#6c8cff;--acc2:#45e0c0;--ok:#3ddc97;--err:#ff6b81}
   *{box-sizing:border-box}
@@ -287,7 +287,7 @@ function page(body) {
   h2{margin:0 0 14px;font-size:20px}
   .top{display:flex;align-items:center;justify-content:space-between}
   label{display:block;font-size:13px;color:var(--mut);margin:14px 0 6px}
-  input,select,textarea{width:100%;padding:11px 12px;border-radius:10px;border:1px solid #313b66;background:#11152a;color:var(--fg);font-size:14px;outline:none}
+  input,select,textarea{100%;padding:11px 12px;border-radius:10px;border:1px solid #313b66;background:#11152a;color:var(--fg);font-size:14px;outline:none}
   input:focus,select:focus,textarea:focus{border-color:var(--acc)}
   textarea{min-height:120px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
   button{margin-top:14px;padding:11px 16px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#0c1024;font-weight:600;font-size:14px;cursor:pointer}
