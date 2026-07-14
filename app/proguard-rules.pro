@@ -2,9 +2,9 @@
 # 默认规则 proguard-android-optimize.txt 已自动保留 Manifest 引用的类。
 
 # === 混淆字典：类名、方法名用随机乱码 ===
--obfuscationdictionary app/proguard-dictionary.txt
--classobfuscationdictionary app/class-dictionary.txt
--packageobfuscationdictionary app/proguard-dictionary.txt
+-obfuscationdictionary proguard-dictionary.txt
+-classobfuscationdictionary class-dictionary.txt
+-packageobfuscationdictionary proguard-dictionary.txt
 
 # === 保留不能被混淆的 ===
 
