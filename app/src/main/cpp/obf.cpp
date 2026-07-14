@@ -12,7 +12,7 @@ static const char B64[] =
 // 标准 Base64 解码（无填充/有填充均可）
 static std::string b64_decode(const std::string& in) {
     std::string out;
-    int val = 0, valb = -6;
+    int val = 0, valb = -8;
     for (unsigned char c : in) {
         if (c == '=') break;
         const char* p = (const char*)memchr(B64, (int)c, sizeof(B64) - 1);
