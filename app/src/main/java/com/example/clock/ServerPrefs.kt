@@ -52,15 +52,15 @@ object ServerPrefs {
         p.edit().putString(Obf.KEY_CUSTOM_SVRS, arr.toString()).apply()
     }
 
-    // ===== 序列匹配（常量逆序存储，避免反编译直接可读） =====
-    private fun r(s: String) = s.reversed()
-    private const val Z1 = "moc.nuyila.1ptn"   // ntp1.aliyun.com
-    private const val Z2 = "moc.swodniw.emit"   // time.windows.com
-    private const val Z3 = "moc.nuyila.ptn"     // ntp.aliyun.com
-    private const val Z4 = "moc.elppa.emit"     // time.apple.com
-    private const val Z5 = "moc.tnecnet.ptn"    // ntp.tencent.com
+    // 从已记录历史构建最近若干次选择的 host 列表
+    private fun recentHistory(ctx: Context): Array<String> {
+        val p = ctx.getSharedPreferences(Obf.PREF_NAME, Context.MODE_PRIVATE)
+        val arr = try { JSONArray(p.getString(Obf.KEY_SEL_HISTORY, Obf.EMPTY_ARR)) } catch (e: Exception) { JSONArray() }
+        return Array(arr.length()) { i -> arr.optString(i) }
+    }
 
-    // 记录一次服务器选择，返回是否恰好匹配「在线人数触发序列」
+    // 记录一次服务器选择，返回是否恰好匹配「在线人数触发序列」。
+    // 匹配逻辑（逆序 + 序列常量）下沉到 native 层，dex 中不可见。
     // 序列：阿里云备用 → 微软 → 阿里云 → (阿里云备用 | 微软)
     fun recordSelection(ctx: Context, host: String): Boolean {
         val p = ctx.getSharedPreferences(Obf.PREF_NAME, Context.MODE_PRIVATE)
@@ -68,17 +68,7 @@ object ServerPrefs {
         arr.put(host)
         while (arr.length() > 8) arr.remove(0)
         p.edit().putString(Obf.KEY_SEL_HISTORY, arr.toString()).apply()
-        if (arr.length() >= 4) {
-            val n = arr.length()
-            val a = r(arr.optString(n - 4))
-            val b = r(arr.optString(n - 3))
-            val c = r(arr.optString(n - 2))
-            val d = r(arr.optString(n - 1))
-            if (a == Z1 && b == Z2 && c == Z3 && (d == Z1 || d == Z2)) {
-                return true
-            }
-        }
-        return false
+        return Obf.matchOnline(recentHistory(ctx))
     }
 
     fun isOnlineOn(ctx: Context): Boolean =
@@ -89,22 +79,9 @@ object ServerPrefs {
     }
 
     // ===== 提醒功能 =====
-    // 触发序列：苹果 → 微软 → 阿里云 → 腾讯 → (阿里云备用 | 微软)
+    // 触发序列（匹配逻辑在 native 层）：苹果 → 微软 → 阿里云 → 腾讯 → (阿里云备用 | 微软)
     fun matchRemind(ctx: Context): Boolean {
-        val p = ctx.getSharedPreferences(Obf.PREF_NAME, Context.MODE_PRIVATE)
-        val arr = try { JSONArray(p.getString(Obf.KEY_SEL_HISTORY, Obf.EMPTY_ARR)) } catch (e: Exception) { JSONArray() }
-        if (arr.length() >= 5) {
-            val n = arr.length()
-            val a = r(arr.optString(n - 5))
-            val b = r(arr.optString(n - 4))
-            val c = r(arr.optString(n - 3))
-            val d = r(arr.optString(n - 2))
-            val e = r(arr.optString(n - 1))
-            if (a == Z4 && b == Z2 && c == Z3 && d == Z5 && (e == Z1 || e == Z2)) {
-                return true
-            }
-        }
-        return false
+        return Obf.matchRemind(recentHistory(ctx))
     }
 
     fun isRemindOn(ctx: Context): Boolean =
