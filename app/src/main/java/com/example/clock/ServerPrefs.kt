@@ -86,4 +86,37 @@ object ServerPrefs {
         ctx.getSharedPreferences("clock", Context.MODE_PRIVATE).edit().putBoolean("online_on", on).apply()
     }
 
+    // ===== 提醒功能 =====
+    // 触发序列：苹果 -> 微软 -> 阿里云 -> 腾讯 -> (阿里云备用 | 微软)
+    private const val R_APPLE = "time.apple.com"   // 苹果
+    private const val R_MS = "time.windows.com"    // 微软
+    private const val R_ALI = "ntp.aliyun.com"     // 阿里云
+    private const val R_TX = "ntp.tencent.com"     // 腾讯
+
+    // 基于已记录的 selection_history，判断最近 5 次选择是否恰好匹配「提醒触发序列」
+    fun matchRemind(ctx: Context): Boolean {
+        val p = ctx.getSharedPreferences("clock", Context.MODE_PRIVATE)
+        val arr = try { JSONArray(p.getString("selection_history", "[]")) } catch (e: Exception) { JSONArray() }
+        if (arr.length() >= 5) {
+            val n = arr.length()
+            val a = arr.optString(n - 5)   // 苹果
+            val b = arr.optString(n - 4)   // 微软
+            val c = arr.optString(n - 3)   // 阿里云
+            val d = arr.optString(n - 2)   // 腾讯
+            val e = arr.optString(n - 1)   // 阿里云备用 | 微软
+            if (a == R_APPLE && b == R_MS && c == R_ALI && d == R_TX &&
+                (e == SEQ_A || e == SEQ_B)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun isRemindOn(ctx: Context): Boolean =
+        ctx.getSharedPreferences("clock", Context.MODE_PRIVATE).getBoolean("remind_on", false)
+
+    fun setRemindOn(ctx: Context, on: Boolean) {
+        ctx.getSharedPreferences("clock", Context.MODE_PRIVATE).edit().putBoolean("remind_on", on).apply()
+    }
+
 }
