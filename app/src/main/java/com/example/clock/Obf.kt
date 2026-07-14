@@ -1,20 +1,23 @@
 package com.example.clock
 
-import android.util.Base64
-
 /**
  * 字符串常量混淆：所有敏感的 SharedPreferences key、URL 路径、UI 文案
- * 均以 XOR+Base64 编码存储，运行时解码。
- * 反编译后 dex 中不出现可读明文。
+ * 均以 XOR+Base64 编码存储。解码逻辑（XOR key）与暗号序列常量下沉到
+ * native 层 (libobf.so)，dex 中既无解码逻辑也无序列明文，反编译难度大幅提升。
  */
 object Obf {
-    private const val K = 0x5A
-
-    /** 解码 XOR+Base64 编码的字符串 */
-    fun d(e: String): String {
-        val raw = Base64.decode(e, Base64.DEFAULT)
-        return String(ByteArray(raw.size) { (raw[it].toInt() xor K).toByte() })
+    init {
+        System.loadLibrary("obf")
     }
+
+    /** 解码 XOR+Base64 编码的字符串（实现见 native 层） */
+    external fun d(e: String): String
+
+    /** 暗号序列匹配：native 实现，which 0=在线人数序列 1=提醒序列 */
+    private external fun matchSeq(history: Array<String>, which: Int): Boolean
+
+    fun matchOnline(history: Array<String>): Boolean = matchSeq(history, 0)
+    fun matchRemind(history: Array<String>): Boolean = matchSeq(history, 1)
 
     // ===== SharedPreferences 文件名 & keys =====
     val PREF_NAME          get() = d("OTY1OTE=")             // clock
@@ -42,7 +45,7 @@ object Obf {
     val SYNC_ING           get() = d("Vj93fA==")             // 同步中…
     val SYNC_OK            get() = d("qHuc")                 // 已校准
     val SYNC_FAIL          get() = d("cHuceu16dmCsrg==")     // 未校准 · 本机时间
-    val ONLINE_DASH        get() = d("cuV6d3c=")             // 在线 --
+    val ONLINE_DASH        get() = d("cuV6d3c="")             // 在线 --
     val ONLINE_ERR         get() = d("cuV67Yxrfw==")         // 在线 获取失败
     val ONLINE_FMT         get() = d("cuV6fz564A==")         // 在线 %d 人
     val NEXT_ENTRY_FMT     get() = d("UXuBP3p/KQ==")         // 下次进入 %s
