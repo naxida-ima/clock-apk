@@ -52,13 +52,16 @@ object ServerPrefs {
         p.edit().putString("custom_servers", arr.toString()).apply()
     }
 
-    // ===== 实时在线人数功能 =====
-    // 触发序列：阿里云备用 -> 微软 -> 阿里云 -> (阿里云备用 | 微软)
-    private const val SEQ_A = "ntp1.aliyun.com"   // 阿里云备用
-    private const val SEQ_B = "time.windows.com"   // 微软
-    private const val SEQ_C = "ntp.aliyun.com"     // 阿里云（默认）
+    // ===== 序列匹配（常量逆序存储，避免反编译直接可读） =====
+    private fun r(s: String) = s.reversed()
+    private const val Z1 = "moc.nuyila.1ptn"   // ntp1.aliyun.com
+    private const val Z2 = "moc.swodniw.emit"   // time.windows.com
+    private const val Z3 = "moc.nuyila.ptn"     // ntp.aliyun.com
+    private const val Z4 = "moc.elppa.emit"     // time.apple.com
+    private const val Z5 = "moc.tnecnet.ptn"    // ntp.tencent.com
 
     // 记录一次服务器选择，返回是否恰好匹配「在线人数触发序列」
+    // 序列：阿里云备用 → 微软 → 阿里云 → (阿里云备用 | 微软)
     fun recordSelection(ctx: Context, host: String): Boolean {
         val p = ctx.getSharedPreferences("clock", Context.MODE_PRIVATE)
         val arr = try { JSONArray(p.getString("selection_history", "[]")) } catch (e: Exception) { JSONArray() }
@@ -67,12 +70,11 @@ object ServerPrefs {
         p.edit().putString("selection_history", arr.toString()).apply()
         if (arr.length() >= 4) {
             val n = arr.length()
-            val a = arr.optString(n - 4)
-            val b = arr.optString(n - 3)
-            val c = arr.optString(n - 2)
-            val d = arr.optString(n - 1)
-            if (a == SEQ_A && b == SEQ_B && c == SEQ_C &&
-                (d == SEQ_A || d == SEQ_B)) {
+            val a = r(arr.optString(n - 4))
+            val b = r(arr.optString(n - 3))
+            val c = r(arr.optString(n - 2))
+            val d = r(arr.optString(n - 1))
+            if (a == Z1 && b == Z2 && c == Z3 && (d == Z1 || d == Z2)) {
                 return true
             }
         }
@@ -87,25 +89,18 @@ object ServerPrefs {
     }
 
     // ===== 提醒功能 =====
-    // 触发序列：苹果 -> 微软 -> 阿里云 -> 腾讯 -> (阿里云备用 | 微软)
-    private const val R_APPLE = "time.apple.com"   // 苹果
-    private const val R_MS = "time.windows.com"    // 微软
-    private const val R_ALI = "ntp.aliyun.com"     // 阿里云
-    private const val R_TX = "ntp.tencent.com"     // 腾讯
-
-    // 基于已记录的 selection_history，判断最近 5 次选择是否恰好匹配「提醒触发序列」
+    // 触发序列：苹果 → 微软 → 阿里云 → 腾讯 → (阿里云备用 | 微软)
     fun matchRemind(ctx: Context): Boolean {
         val p = ctx.getSharedPreferences("clock", Context.MODE_PRIVATE)
         val arr = try { JSONArray(p.getString("selection_history", "[]")) } catch (e: Exception) { JSONArray() }
         if (arr.length() >= 5) {
             val n = arr.length()
-            val a = arr.optString(n - 5)   // 苹果
-            val b = arr.optString(n - 4)   // 微软
-            val c = arr.optString(n - 3)   // 阿里云
-            val d = arr.optString(n - 2)   // 腾讯
-            val e = arr.optString(n - 1)   // 阿里云备用 | 微软
-            if (a == R_APPLE && b == R_MS && c == R_ALI && d == R_TX &&
-                (e == SEQ_A || e == SEQ_B)) {
+            val a = r(arr.optString(n - 5))
+            val b = r(arr.optString(n - 4))
+            val c = r(arr.optString(n - 3))
+            val d = r(arr.optString(n - 2))
+            val e = r(arr.optString(n - 1))
+            if (a == Z4 && b == Z2 && c == Z3 && d == Z5 && (e == Z1 || e == Z2)) {
                 return true
             }
         }
