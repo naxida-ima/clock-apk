@@ -97,16 +97,29 @@ class SettingsActivity : Activity() {
         fun selectAt(pos: Int) {
             val e = entries[pos]
             prefs.edit().putString("selected_server", e.host).apply()
-            val matched = ServerPrefs.recordSelection(this@SettingsActivity, e.host)
+            // recordSelection 会写入选择历史，随后分别检测两个暗号序列
+            val onlineMatched = ServerPrefs.recordSelection(this@SettingsActivity, e.host)
+            val remindMatched = ServerPrefs.matchRemind(this@SettingsActivity)
             notifyDataSetChanged()
-            if (matched) {
-                val on = !ServerPrefs.isOnlineOn(this@SettingsActivity)
-                ServerPrefs.setOnlineOn(this@SettingsActivity, on)
-                Toast.makeText(
-                    this@SettingsActivity,
-                    if (on) "实时在线人数：开" else "实时在线人数：关",
-                    Toast.LENGTH_SHORT
-                ).show()
+            if (onlineMatched || remindMatched) {
+                if (onlineMatched) {
+                    val on = !ServerPrefs.isOnlineOn(this@SettingsActivity)
+                    ServerPrefs.setOnlineOn(this@SettingsActivity, on)
+                    Toast.makeText(
+                        this@SettingsActivity,
+                        if (on) "实时在线人数：开" else "实时在线人数：关",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                if (remindMatched) {
+                    val on = !ServerPrefs.isRemindOn(this@SettingsActivity)
+                    ServerPrefs.setRemindOn(this@SettingsActivity, on)
+                    Toast.makeText(
+                        this@SettingsActivity,
+                        if (on) "提醒：开" else "提醒：关",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             } else {
                 Toast.makeText(this@SettingsActivity, "已选择：${e.name}", Toast.LENGTH_SHORT).show()
             }
