@@ -26,7 +26,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             // 使用随仓库固定的 release 签名，避免 CI/本地签名不一致导致覆盖安装失败
             signingConfig = signingConfigs.getByName("release")
         }
