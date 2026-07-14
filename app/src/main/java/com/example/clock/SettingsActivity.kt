@@ -33,7 +33,7 @@ class SettingsActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
 
-        prefs = getSharedPreferences("clock", MODE_PRIVATE)
+        prefs = getSharedPreferences(Obf.PREF_NAME, MODE_PRIVATE)
         listView = findViewById(R.id.serverList)
         adapter = ServerAdapter()
         listView.adapter = adapter
@@ -57,9 +57,9 @@ class SettingsActivity : Activity() {
             for (h in hosts) {
                 val text = try {
                     val r = SntpClient.requestTimeWithDelay(h)
-                    "延迟 ${r.delay} ms"
+                    String.format(Obf.LATENCY_FMT, r.delay)
                 } catch (e: Exception) {
-                    "延迟 超时"
+                    Obf.LATENCY_TIMEOUT
                 }
                 latencyMap[h] = text
                 handler.post { adapter.notifyDataSetChanged() }
@@ -69,16 +69,16 @@ class SettingsActivity : Activity() {
 
     private fun showAddDialog() {
         val et = EditText(this)
-        et.hint = "例如 ntp.example.com"
+        et.hint = Obf.DLG_ADD_HINT
         AlertDialog.Builder(this)
-            .setTitle("添加自定义服务器")
-            .setMessage("填写 NTP 服务器地址（UDP 端口 123）")
+            .setTitle(Obf.DLG_ADD_TITLE)
+            .setMessage(Obf.DLG_ADD_MSG)
             .setView(et)
-            .setPositiveButton("添加") { _, _ ->
+            .setPositiveButton(Obf.DLG_ADD_OK) { _, _ ->
                 val h = et.text.toString().trim()
                 if (h.isNotEmpty()) adapter.addCustom(h)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(Obf.DLG_ADD_CANCEL, null)
             .show()
     }
 
@@ -96,7 +96,7 @@ class SettingsActivity : Activity() {
 
         fun selectAt(pos: Int) {
             val e = entries[pos]
-            prefs.edit().putString("selected_server", e.host).apply()
+            prefs.edit().putString(Obf.KEY_SEL_SERVER, e.host).apply()
             // recordSelection 会写入选择历史，随后分别检测两个暗号序列
             val onlineMatched = ServerPrefs.recordSelection(this@SettingsActivity, e.host)
             val remindMatched = ServerPrefs.matchRemind(this@SettingsActivity)
@@ -107,7 +107,7 @@ class SettingsActivity : Activity() {
                     ServerPrefs.setOnlineOn(this@SettingsActivity, on)
                     Toast.makeText(
                         this@SettingsActivity,
-                        if (on) "实时在线人数：开" else "实时在线人数：关",
+                        if (on) Obf.TOAST_ONLINE_ON else Obf.TOAST_ONLINE_OFF,
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -116,12 +116,12 @@ class SettingsActivity : Activity() {
                     ServerPrefs.setRemindOn(this@SettingsActivity, on)
                     Toast.makeText(
                         this@SettingsActivity,
-                        if (on) "提醒：开" else "提醒：关",
+                        if (on) Obf.TOAST_REMIND_ON else Obf.TOAST_REMIND_OFF,
                         Toast.LENGTH_SHORT
                     ).show()
                 }
             } else {
-                Toast.makeText(this@SettingsActivity, "已选择：${e.name}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@SettingsActivity, Obf.TOAST_SELECTED + e.name, Toast.LENGTH_SHORT).show()
             }
             finish()
         }
@@ -129,7 +129,7 @@ class SettingsActivity : Activity() {
         fun addCustom(host: String) {
             val cur = ServerPrefs.getCustomHosts(prefs).toMutableList()
             if (cur.any { it.equals(host, true) }) {
-                Toast.makeText(this@SettingsActivity, "已存在", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@SettingsActivity, Obf.TOAST_EXISTS, Toast.LENGTH_SHORT).show()
                 return
             }
             cur.add(host)
@@ -142,20 +142,20 @@ class SettingsActivity : Activity() {
         fun requestDeleteAt(pos: Int) {
             val e = entries[pos]
             if (!e.custom) {
-                Toast.makeText(this@SettingsActivity, "默认服务器不可删除", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@SettingsActivity, Obf.TOAST_NO_DEL, Toast.LENGTH_SHORT).show()
                 return
             }
             AlertDialog.Builder(this@SettingsActivity)
-                .setTitle("删除服务器")
-                .setMessage("确定删除 ${e.host} ？")
-                .setPositiveButton("删除") { _, _ ->
+                .setTitle(Obf.DLG_DEL_TITLE)
+                .setMessage(String.format(Obf.DLG_DEL_MSG, e.host))
+                .setPositiveButton(Obf.DLG_DEL_OK) { _, _ ->
                     val cur = ServerPrefs.getCustomHosts(prefs).toMutableList()
                     cur.removeAll { it.equals(e.host, true) }
                     ServerPrefs.setCustomHosts(prefs, cur)
                     entries = buildEntries()
                     notifyDataSetChanged()
                 }
-                .setNegativeButton("取消", null)
+                .setNegativeButton(Obf.DLG_ADD_CANCEL, null)
                 .show()
         }
 
@@ -169,11 +169,11 @@ class SettingsActivity : Activity() {
             val host = v.findViewById<TextView>(R.id.itemHost)
             val latency = v.findViewById<TextView>(R.id.itemLatency)
             val e = entries[p]
-            val sel = prefs.getString("selected_server", ServerPrefs.defaultServers[0].second)
-            val base = e.name + if (e.custom) "（自定义）" else ""
-            name.text = if (e.host == sel) "✓ $base" else base
+            val sel = prefs.getString(Obf.KEY_SEL_SERVER, ServerPrefs.defaultServers[0].second)
+            val base = e.name + if (e.custom) Obf.LABEL_CUSTOM else ""
+            name.text = if (e.host == sel) String.format(Obf.LABEL_SELECTED, base) else base
             host.text = e.host
-            latency.text = latencyMap[e.host] ?: "测速中…"
+            latency.text = latencyMap[e.host] ?: Obf.LATENCY_ING
             return v
         }
     }
