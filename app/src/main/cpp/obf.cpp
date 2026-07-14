@@ -3,19 +3,63 @@
 #include <algorithm>
 #include <cstring>
 #include <cstdint>
+#include <cstdlib>
 
 // 关键逻辑全部在 native 层：XOR key 与暗号序列常量都不出现在 dex 中。
-// key 不再写死为单字节常量 0x5A；运行时由盐串做 FNV-1a 派生，
-// 避免反汇编一眼看到 XOR key（提高逆向门槛）。
+// XOR key 运行时从「真实包名」派生（FNV-1a），不再写死单字节常量 0x5A：
+//   - 本地单测用环境变量 Obf_TEST_PKG 注入包名，保证可离线校验；
+//   - Android 运行时经 ActivityThread 取真实包名；取不到则兜底为当前包名。
+//   编译器无法在编译期折叠（包名是运行时取得的），故 .so 中无现成 key。
 static uint8_t g_key = 0;
-static uint8_t derive_key() {
-    if (g_key != 0) return g_key;
-    const char* salt = "cLk-0bf-S4lt-7qX-2024"; // 仅作派生盐，非直接使用
-    uint32_t h = 2166136261u;                   // FNV-1a 偏移基数
-    for (int i = 0; salt[i]; ++i) { h ^= (uint8_t)salt[i]; h *= 16777619u; }
+
+static uint8_t compute_key(JNIEnv* env) {
+    std::string pkg;
+    const char* t = getenv("Obf_TEST_PKG");
+    if (t && *t) {
+        pkg = t;
+    } else if (env) {
+        jclass at = env->FindClass("android/app/ActivityThread");
+        if (at) {
+            jmethodID cur = env->GetStaticMethodID(at, "currentApplication", "()Landroid/app/Application;");
+            if (cur) {
+                jobject app = env->CallStaticObjectMethod(at, cur);
+                if (app) {
+                    jclass ctx = env->GetObjectClass(app);
+                    jmethodID gp = env->GetMethodID(ctx, "getPackageName", "()Ljava/lang/String;");
+                    if (gp) {
+                        jstring pn = (jstring)env->CallObjectMethod(app, gp);
+                        if (pn) {
+                            const char* s = env->GetStringUTFChars(pn, nullptr);
+                            if (s) { pkg = s; env->ReleaseStringUTFChars(pn, s); }
+                            env->DeleteLocalRef(pn);
+                        }
+                        env->DeleteLocalRef(ctx);
+                    }
+                    env->DeleteLocalRef(app);
+                }
+                if (env->ExceptionCheck()) env->ExceptionClear();
+            }
+            env->DeleteLocalRef(at);
+        }
+    }
+    if (pkg.empty()) pkg = "com.example.clock"; // 兜底：与生成时常量一致
+    uint32_t h = 2166136261u;
+    for (unsigned char c : pkg) { h ^= c; h *= 16777619u; }
     uint8_t k = (uint8_t)(h & 0xFF);
-    g_key = (k == 0) ? 0x5A : k;                // 避开 0（XOR 0 等于不加密）
+    return k ? k : 0x5A;
+}
+
+static uint8_t derive_key() {
+    if (g_key == 0) g_key = compute_key(nullptr); // JNI_OnLoad 已初始化；此处仅兜底
     return g_key;
+}
+
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
+    JNIEnv* env = nullptr;
+    if (vm->GetEnv((void**)&env, JNI_VERSION_1_6) == JNI_OK) {
+        g_key = compute_key(env);
+    }
+    return JNI_VERSION_1_6;
 }
 
 static const char B64[] =
