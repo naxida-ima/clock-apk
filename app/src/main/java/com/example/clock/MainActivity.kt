@@ -3,8 +3,12 @@ package com.example.clock
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Vibrator
+import android.os.VibrationEffect
+import android.content.res.Configuration
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -38,6 +42,11 @@ class MainActivity : Activity() {
     private var onlineOn = false
     private var onlineBase = ""
     private var nextEntryValue = ""
+
+    // 提醒功能：由服务器切换序列暗号触发，持久化保存
+    private var remindOn = false
+    // 已对哪个「下次进入时间」目标触发过振动，避免重复震
+    private var remindedTargetMs = 0L
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -101,6 +110,7 @@ class MainActivity : Activity() {
         val p = getSharedPreferences("clock", MODE_PRIVATE)
         nextEntryOn = p.getBoolean("next_entry_on", false)
         onlineOn = ServerPrefs.isOnlineOn(this)
+        remindOn = ServerPrefs.isRemindOn(this)
         onlineBase = loadOnlineBase()
     }
 
@@ -176,12 +186,78 @@ class MainActivity : Activity() {
         if (showNext) {
             nextEntryText.visibility = View.VISIBLE
             nextEntryText.text = "下次进入 ${if (nextEntryValue.isNotEmpty()) nextEntryValue else nextEntryTime(now)}"
+            // 提醒：剩 30 秒时多震几下
+            if (remindOn) checkRemindVibrate(now)
         } else {
             nextEntryText.visibility = View.GONE
+            remindedTargetMs = 0L
         }
 
-        // 实时在线人数：由序列暗号开启，且已配置 Worker 地址时才显示
-        onlineText.visibility = if (onlineOn && onlineBase.isNotEmpty()) View.VISIBLE else View.GONE
+        // 实时在线人数：由序列暗号开启、且当前选中服务器为「微软 / 阿里云备用」、且已配置 Worker 地址时才显示
+        onlineText.visibility = if (onlineOn && onlineBase.isNotEmpty() && ServerPrefs.isNextEntryHost(selected)) View.VISIBLE else View.GONE
+    }
+
+    // 计算「下次进入时间」目标毫秒：优先用远程设定值，否则用本地每 4 分钟节奏
+    private fun computeTargetMs(now: Long): Long? {
+        if (nextEntryValue.isNotEmpty()) {
+            parseHms(nextEntryValue)?.let { return it }
+        }
+        return nextEntryMillis(now)
+    }
+
+    private fun parseHms(s: String): Long? {
+        val cal = Calendar.getInstance(shanghai)
+        val m = Regex("""^(\d{1,2}):(\d{2})(?::(\d{2}))?$""").find(s.trim()) ?: return null
+        val hh = m.groupValues[1].toInt()
+        val mm = m.groupValues[2].toInt()
+        val ss = if (m.groupValues[3].isNotEmpty()) m.groupValues[3].toInt() else 0
+        cal.set(Calendar.HOUR_OF_DAY, hh)
+        cal.set(Calendar.MINUTE, mm)
+        cal.set(Calendar.SECOND, ss)
+        cal.set(Calendar.MILLISECOND, 0)
+        var t = cal.timeInMillis
+        if (t <= now) t += 24 * 3600_000L
+        return t
+    }
+
+    private fun nextEntryMillis(now: Long): Long {
+        val cal = Calendar.getInstance(shanghai)
+        cal.timeInMillis = now
+        val m = cal.get(Calendar.MINUTE)
+        val s = cal.get(Calendar.SECOND)
+        val ms = cal.get(Calendar.MILLISECOND)
+        var deltaMin = (4 - ((m - 1) % 4)) % 4
+        if (deltaMin == 0 && (s > 0 || ms > 0)) deltaMin = 4
+        cal.add(Calendar.MINUTE, deltaMin)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
+    }
+
+    // 距「下次进入时间」还剩 30 秒内时振动提醒（每个目标只震一次）
+    private fun checkRemindVibrate(now: Long) {
+        val target = computeTargetMs(now) ?: return
+        val remain = target - now
+        if (remain in 1..30_000L) {
+            if (remindedTargetMs != target) {
+                vibrateReminder()
+                remindedTargetMs = target
+            }
+        } else {
+            if (remindedTargetMs == target) remindedTargetMs = 0L
+        }
+    }
+
+    private fun vibrateReminder() {
+        val vib = getSystemService(VIBRATOR_SERVICE) as? Vibrator ?: return
+        // 多震几下：震-停-震-停-震-停-震
+        val pattern = longArrayOf(0, 260, 130, 260, 130, 260, 130, 260)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vib.vibrate(VibrationEffect.createWaveform(pattern, -1))
+        } else {
+            @Suppress("DEPRECATION")
+            vib.vibrate(pattern, -1)
+        }
     }
 
     // 加入时间规律：每分钟的第 1/5/9/13… 分（每 4 分钟一次，minute % 4 == 1）。
@@ -310,5 +386,13 @@ class MainActivity : Activity() {
                 handler.post { onlineText.text = "在线 获取失败" }
             }
         }
+    }
+
+    // 分屏 / 旋转等窗口尺寸变化时不重建 Activity，重算字号避免字体挤行
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        hideSystemUI()
+        fitTextSize()
+        updateClock()
     }
 }
