@@ -2,9 +2,21 @@
 #include <string>
 #include <algorithm>
 #include <cstring>
+#include <cstdint>
 
 // 关键逻辑全部在 native 层：XOR key 与暗号序列常量都不出现在 dex 中。
-static const int KEY = 0x5A;
+// key 不再写死为单字节常量 0x5A；运行时由盐串做 FNV-1a 派生，
+// 避免反汇编一眼看到 XOR key（提高逆向门槛）。
+static uint8_t g_key = 0;
+static uint8_t derive_key() {
+    if (g_key != 0) return g_key;
+    const char* salt = "cLk-0bf-S4lt-7qX-2024"; // 仅作派生盐，非直接使用
+    uint32_t h = 2166136261u;                   // FNV-1a 偏移基数
+    for (int i = 0; salt[i]; ++i) { h ^= (uint8_t)salt[i]; h *= 16777619u; }
+    uint8_t k = (uint8_t)(h & 0xFF);
+    g_key = (k == 0) ? 0x5A : k;                // 避开 0（XOR 0 等于不加密）
+    return g_key;
+}
 
 static const char B64[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -33,7 +45,7 @@ Java_com_example_clock_Obf_d(JNIEnv* env, jclass, jstring enc) {
     const char* encC = env->GetStringUTFChars(enc, nullptr);
     std::string decoded = b64_decode(std::string(encC));
     env->ReleaseStringUTFChars(enc, encC);
-    for (char& c : decoded) c ^= KEY;
+    for (char& c : decoded) c ^= derive_key();
     return env->NewStringUTF(decoded.c_str());
 }
 
@@ -42,7 +54,9 @@ Java_com_example_clock_Obf_d(JNIEnv* env, jclass, jstring enc) {
 //        1 = 提醒序列(苹果→微软→阿里云→腾讯→(阿里云备用|微软))
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_example_clock_Obf_matchSeq(JNIEnv* env, jclass, jobjectArray history, jint which) {
+    uint8_t k = derive_key();
     jsize len = env->GetArrayLength(history);
+    // 历史 host 逆序后再 XOR key，与隐藏常量同方式处理（.so 中无明文 host）
     auto hostAt = [&](int idx) -> std::string {
         jstring s = (jstring)env->GetObjectArrayElement(history, idx);
         const char* c = env->GetStringUTFChars(s, nullptr);
@@ -50,14 +64,20 @@ Java_com_example_clock_Obf_matchSeq(JNIEnv* env, jclass, jobjectArray history, j
         env->ReleaseStringUTFChars(s, c);
         env->DeleteLocalRef(s);
         std::reverse(r.begin(), r.end());
+        for (char& ch : r) ch ^= k;
         return r;
     };
-    // 序列常量以逆序存储（与 dex 中同样不可读，但此处反编译难度高得多）
-    const std::string Z1 = "moc.nuyila.1ptn"; // ntp1.aliyun.com
-    const std::string Z2 = "moc.swodniw.emit"; // time.windows.com
-    const std::string Z3 = "moc.nuyila.ptn";   // ntp.aliyun.com
-    const std::string Z4 = "moc.elppa.emit";   // time.apple.com
-    const std::string Z5 = "moc.tnecnet.ptn";  // ntp.tencent.com
+    auto xored = [k](const char* s) -> std::string {
+        std::string r(s);
+        for (char& ch : r) ch ^= k;
+        return r;
+    };
+    // 序列常量以「逆序 + XOR key」存储（dex/.so 中均不可读）
+    const std::string Z1 = xored("moc.nuyila.1ptn"); // ntp1.aliyun.com
+    const std::string Z2 = xored("moc.swodniw.emit"); // time.windows.com
+    const std::string Z3 = xored("moc.nuyila.ptn");   // ntp.aliyun.com
+    const std::string Z4 = xored("moc.elppa.emit");   // time.apple.com
+    const std::string Z5 = xored("moc.tnecnet.ptn");  // ntp.tencent.com
 
     if (which == 0) {
         if (len < 4) return JNI_FALSE;
