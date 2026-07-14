@@ -27,9 +27,9 @@ static std::string b64_decode(const std::string& in) {
     return out;
 }
 
-// 替代 Kotlin 的 Obf.d()：Base64 解码后逐字节 XOR(KEY)
+// 对应 Kotlin 的 external fun d(e: String): String —— JNI 名必须与 Kotlin 方法名一致（Obf_d）
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_example_clock_Obf_decode(JNIEnv* env, jclass, jstring enc) {
+Java_com_example_clock_Obf_d(JNIEnv* env, jclass, jstring enc) {
     const char* encC = env->GetStringUTFChars(enc, nullptr);
     std::string decoded = b64_decode(std::string(encC));
     env->ReleaseStringUTFChars(enc, encC);
