@@ -85,7 +85,7 @@ class MainActivity : Activity() {
         onlineText = findViewById(R.id.onlineText)
 
         loadPrefs()
-        startOnlinePolling()
+        startBackgroundTimers()
         fitTextSize()
         settingsBtn.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
@@ -261,20 +261,8 @@ class MainActivity : Activity() {
     }
 
     // 加入时间规律：每分钟的第 1/5/9/13… 分（每 4 分钟一次，minute % 4 == 1）。
-    // 返回从 now 起下一个符合条件的整分时刻（秒/毫秒归零）。
-    private fun nextEntryTime(now: Long): String {
-        val cal = Calendar.getInstance(shanghai)
-        cal.timeInMillis = now
-        val m = cal.get(Calendar.MINUTE)
-        val s = cal.get(Calendar.SECOND)
-        val ms = cal.get(Calendar.MILLISECOND)
-        var deltaMin = (4 - ((m - 1) % 4)) % 4
-        if (deltaMin == 0 && (s > 0 || ms > 0)) deltaMin = 4
-        cal.add(Calendar.MINUTE, deltaMin)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        return timeFmt.format(cal.time)
-    }
+    // 返回从 now 起下一个符合条件的整分时刻格式化文本。
+    private fun nextEntryTime(now: Long): String = timeFmt.format(nextEntryMillis(now))
 
     // 优先用用户在设置里选的服务器；失败再静默回退其他服务器，绝不显示具体地址
     private fun syncTime() {
@@ -301,8 +289,8 @@ class MainActivity : Activity() {
         }
     }
 
-    // ===== 实时在线人数 =====
-    private fun startOnlinePolling() {
+    // ===== 后台定时任务（在线人数 + 下次进入时间拉取） =====
+    private fun startBackgroundTimers() {
         handler.postDelayed(onlineTimer, 1000)
         handler.postDelayed(nextEntryTimer, 1000)
     }
