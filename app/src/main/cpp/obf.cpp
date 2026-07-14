@@ -58,6 +58,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
     JNIEnv* env = nullptr;
     if (vm->GetEnv((void**)&env, JNI_VERSION_1_6) == JNI_OK) {
         g_key = compute_key(env);
+        if (env->ExceptionCheck()) env->ExceptionClear(); // 丢弃取包名时的任何异常，保证加载成功
     }
     return JNI_VERSION_1_6;
 }
