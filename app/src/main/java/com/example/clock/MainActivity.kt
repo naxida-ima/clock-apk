@@ -200,12 +200,12 @@ class MainActivity : Activity() {
     // 计算「下次进入时间」目标毫秒：优先用远程设定值，否则用本地每 4 分钟节奏
     private fun computeTargetMs(now: Long): Long? {
         if (nextEntryValue.isNotEmpty()) {
-            parseHms(nextEntryValue)?.let { return it }
+            parseHms(nextEntryValue, now)?.let { return it }
         }
         return nextEntryMillis(now)
     }
 
-    private fun parseHms(s: String): Long? {
+    private fun parseHms(s: String, now: Long): Long? {
         val cal = Calendar.getInstance(shanghai)
         val m = Regex("""^(\d{1,2}):(\d{2})(?::(\d{2}))?$""").find(s.trim()) ?: return null
         val hh = m.groupValues[1].toInt()
