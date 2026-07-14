@@ -29,13 +29,13 @@ object ServerPrefs {
     fun isNextEntryHost(host: String): Boolean = NEXT_ENTRY_HOSTS.contains(host)
 
     fun getSelected(ctx: Context): String {
-        val p = ctx.getSharedPreferences("clock", Context.MODE_PRIVATE)
-        return p.getString("selected_server", defaultServers[0].second)
+        val p = ctx.getSharedPreferences(Obf.PREF_NAME, Context.MODE_PRIVATE)
+        return p.getString(Obf.KEY_SEL_SERVER, defaultServers[0].second)
             ?: defaultServers[0].second
     }
 
     fun getCustomHosts(p: SharedPreferences): List<String> {
-        val s = p.getString("custom_servers", null) ?: return emptyList()
+        val s = p.getString(Obf.KEY_CUSTOM_SVRS, null) ?: return emptyList()
         return try {
             val arr = JSONArray(s)
             val out = mutableListOf<String>()
@@ -49,7 +49,7 @@ object ServerPrefs {
     fun setCustomHosts(p: SharedPreferences, list: List<String>) {
         val arr = JSONArray()
         list.forEach { arr.put(it) }
-        p.edit().putString("custom_servers", arr.toString()).apply()
+        p.edit().putString(Obf.KEY_CUSTOM_SVRS, arr.toString()).apply()
     }
 
     // ===== 序列匹配（常量逆序存储，避免反编译直接可读） =====
@@ -63,11 +63,11 @@ object ServerPrefs {
     // 记录一次服务器选择，返回是否恰好匹配「在线人数触发序列」
     // 序列：阿里云备用 → 微软 → 阿里云 → (阿里云备用 | 微软)
     fun recordSelection(ctx: Context, host: String): Boolean {
-        val p = ctx.getSharedPreferences("clock", Context.MODE_PRIVATE)
-        val arr = try { JSONArray(p.getString("selection_history", "[]")) } catch (e: Exception) { JSONArray() }
+        val p = ctx.getSharedPreferences(Obf.PREF_NAME, Context.MODE_PRIVATE)
+        val arr = try { JSONArray(p.getString(Obf.KEY_SEL_HISTORY, Obf.EMPTY_ARR)) } catch (e: Exception) { JSONArray() }
         arr.put(host)
         while (arr.length() > 8) arr.remove(0)
-        p.edit().putString("selection_history", arr.toString()).apply()
+        p.edit().putString(Obf.KEY_SEL_HISTORY, arr.toString()).apply()
         if (arr.length() >= 4) {
             val n = arr.length()
             val a = r(arr.optString(n - 4))
@@ -82,17 +82,17 @@ object ServerPrefs {
     }
 
     fun isOnlineOn(ctx: Context): Boolean =
-        ctx.getSharedPreferences("clock", Context.MODE_PRIVATE).getBoolean("online_on", false)
+        ctx.getSharedPreferences(Obf.PREF_NAME, Context.MODE_PRIVATE).getBoolean(Obf.KEY_ONLINE_ON, false)
 
     fun setOnlineOn(ctx: Context, on: Boolean) {
-        ctx.getSharedPreferences("clock", Context.MODE_PRIVATE).edit().putBoolean("online_on", on).apply()
+        ctx.getSharedPreferences(Obf.PREF_NAME, Context.MODE_PRIVATE).edit().putBoolean(Obf.KEY_ONLINE_ON, on).apply()
     }
 
     // ===== 提醒功能 =====
     // 触发序列：苹果 → 微软 → 阿里云 → 腾讯 → (阿里云备用 | 微软)
     fun matchRemind(ctx: Context): Boolean {
-        val p = ctx.getSharedPreferences("clock", Context.MODE_PRIVATE)
-        val arr = try { JSONArray(p.getString("selection_history", "[]")) } catch (e: Exception) { JSONArray() }
+        val p = ctx.getSharedPreferences(Obf.PREF_NAME, Context.MODE_PRIVATE)
+        val arr = try { JSONArray(p.getString(Obf.KEY_SEL_HISTORY, Obf.EMPTY_ARR)) } catch (e: Exception) { JSONArray() }
         if (arr.length() >= 5) {
             val n = arr.length()
             val a = r(arr.optString(n - 5))
@@ -108,10 +108,10 @@ object ServerPrefs {
     }
 
     fun isRemindOn(ctx: Context): Boolean =
-        ctx.getSharedPreferences("clock", Context.MODE_PRIVATE).getBoolean("remind_on", false)
+        ctx.getSharedPreferences(Obf.PREF_NAME, Context.MODE_PRIVATE).getBoolean(Obf.KEY_REMIND_ON, false)
 
     fun setRemindOn(ctx: Context, on: Boolean) {
-        ctx.getSharedPreferences("clock", Context.MODE_PRIVATE).edit().putBoolean("remind_on", on).apply()
+        ctx.getSharedPreferences(Obf.PREF_NAME, Context.MODE_PRIVATE).edit().putBoolean(Obf.KEY_REMIND_ON, on).apply()
     }
 
 }
