@@ -8,6 +8,14 @@
 
 # === 保留不能被混淆的 ===
 
+# ⚠️ JNI native 类：类名与 native 方法名必须原样保留，否则静态注册找不到
+# Java_com_example_clock_Obf_decode / Java_com_example_clock_Obf_matchSeq 符号
+# → UnsatisfiedLinkError → 启动闪退。这是 native 化后闪退的根因。
+-keep class com.example.clock.Obf { *; }
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
 # SntpClient 返回的数据类（Kotlin data class）
 -keep class com.example.clock.SntpClient$SntpResult { *; }
 
