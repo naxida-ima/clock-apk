@@ -107,8 +107,8 @@ class MainActivity : Activity() {
     }
 
     private fun loadPrefs() {
-        val p = getSharedPreferences("clock", MODE_PRIVATE)
-        nextEntryOn = p.getBoolean("next_entry_on", false)
+        val p = getSharedPreferences(Obf.PREF_NAME, MODE_PRIVATE)
+        nextEntryOn = p.getBoolean(Obf.KEY_NEXT_ENTRY_ON, false)
         onlineOn = ServerPrefs.isOnlineOn(this)
         remindOn = ServerPrefs.isRemindOn(this)
         onlineBase = loadOnlineBase()
@@ -144,11 +144,11 @@ class MainActivity : Activity() {
 
     private fun toggleNextEntry() {
         nextEntryOn = !nextEntryOn
-        getSharedPreferences("clock", MODE_PRIVATE)
-            .edit().putBoolean("next_entry_on", nextEntryOn).apply()
+        getSharedPreferences(Obf.PREF_NAME, MODE_PRIVATE)
+            .edit().putBoolean(Obf.KEY_NEXT_ENTRY_ON, nextEntryOn).apply()
         Toast.makeText(
             this,
-            if (nextEntryOn) "下次进入时间：开" else "下次进入时间：关",
+            if (nextEntryOn) Obf.TOAST_NEXT_ON else Obf.TOAST_NEXT_OFF,
             Toast.LENGTH_SHORT
         ).show()
     }
@@ -185,7 +185,7 @@ class MainActivity : Activity() {
         val showNext = nextEntryOn && ServerPrefs.isNextEntryHost(selected)
         if (showNext) {
             nextEntryText.visibility = View.VISIBLE
-            nextEntryText.text = "下次进入 ${if (nextEntryValue.isNotEmpty()) nextEntryValue else nextEntryTime(now)}"
+            nextEntryText.text = Obf.NEXT_ENTRY_FMT.format(if (nextEntryValue.isNotEmpty()) nextEntryValue else nextEntryTime(now))
             // 提醒：剩 30 秒时多震几下
             if (remindOn) checkRemindVibrate(now)
         } else {
@@ -266,26 +266,26 @@ class MainActivity : Activity() {
 
     // 优先用用户在设置里选的服务器；失败再静默回退其他服务器，绝不显示具体地址
     private fun syncTime() {
-        val prefs = getSharedPreferences("clock", MODE_PRIVATE)
+        val prefs = getSharedPreferences(Obf.PREF_NAME, MODE_PRIVATE)
         val selected = ServerPrefs.getSelected(this)
         val custom = ServerPrefs.getCustomHosts(prefs)
         val defaults = ServerPrefs.defaultServers.map { it.second }
         val order = mutableListOf(selected)
         (defaults + custom).filter { it != selected }.toCollection(order)
 
-        syncIndicator.text = "同步中…"
+        syncIndicator.text = Obf.SYNC_ING
         thread {
             for (host in order) {
                 try {
                     val off = SntpClient.requestTime(host)
                     offset = off
-                    handler.post { syncIndicator.text = "已校准" }
+                    handler.post { syncIndicator.text = Obf.SYNC_OK }
                     return@thread
                 } catch (e: Exception) {
                     // 尝试下一个
                 }
             }
-            handler.post { syncIndicator.text = "未校准 · 本机时间" }
+            handler.post { syncIndicator.text = Obf.SYNC_FAIL }
         }
     }
 
@@ -316,7 +316,7 @@ class MainActivity : Activity() {
     private fun fetchNextEntry() {
         thread {
             try {
-                val url = URL("${onlineBase.trimEnd('/')}/nextentry")
+                val url = URL("${onlineBase.trimEnd('/')}${Obf.URL_NEXT_ENTRY}")
                 val con = url.openConnection() as HttpURLConnection
                 con.connectTimeout = 10_000
                 con.readTimeout = 10_000
@@ -329,11 +329,11 @@ class MainActivity : Activity() {
     }
 
     private fun deviceUuid(): String {
-        val p = getSharedPreferences("clock", MODE_PRIVATE)
-        var u = p.getString("device_uuid", null)
+        val p = getSharedPreferences(Obf.PREF_NAME, MODE_PRIVATE)
+        var u = p.getString(Obf.KEY_DEVICE_UUID, null)
         if (u == null) {
             u = UUID.randomUUID().toString()
-            p.edit().putString("device_uuid", u).apply()
+            p.edit().putString(Obf.KEY_DEVICE_UUID, u).apply()
         }
         return u
     }
@@ -361,17 +361,17 @@ class MainActivity : Activity() {
     private fun fetchOnline() {
         thread {
             try {
-                val url = URL("${onlineBase.trimEnd('/')}/heartbeat?id=${deviceUuid()}")
+                val url = URL("${onlineBase.trimEnd('/')}${Obf.URL_HEARTBEAT}${deviceUuid()}")
                 val con = url.openConnection() as HttpURLConnection
                 con.connectTimeout = 10_000
                 con.readTimeout = 10_000
                 val txt = con.inputStream.bufferedReader().readText()
                 val n = JSONObject(txt).optInt("online", -1)
                 handler.post {
-                    onlineText.text = if (n >= 0) "在线 $n 人" else "在线 --"
+                    onlineText.text = if (n >= 0) String.format(Obf.ONLINE_FMT, n) else Obf.ONLINE_DASH
                 }
             } catch (e: Exception) {
-                handler.post { onlineText.text = "在线 获取失败" }
+                handler.post { onlineText.text = Obf.ONLINE_ERR }
             }
         }
     }
